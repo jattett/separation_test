@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { Button, FileForm } from './Styled';
 
-const API_KEY = '9908b0de5b704b80a20bb799d7803ad9'; // 🔥 API 키 직접 입력
+const API_KEY = '9908b0de5b704b80a20bb799d7803ad9';
 
 interface Transcript {
   speaker: number;
@@ -13,13 +14,14 @@ interface Props {
 }
 
 const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
-  const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [progress, setProgress] = useState<number>(0); // 🔥 진행도 상태 추가
+  const [progress, setProgress] = useState<number>(0);
+  const [file, setFile] = useState<File | null>(null); // 🔥 파일 객체 저장
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setFile(event.target.files[0]);
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
     }
   };
 
@@ -30,44 +32,40 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
     setProgress(5);
 
     try {
-      // 1️⃣ AssemblyAI에 파일 업로드 (최대 30% 진행)
       setProgress(10);
-      const uploadResponse = await axios.post('https://api.assemblyai.com/v2/upload', file, {
+
+      // 🔥 `FormData` 사용하여 파일 전송
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // 🔥 AssemblyAI에 파일 업로드 요청
+      const uploadResponse = await axios.post('https://api.assemblyai.com/v2/upload', formData, {
         headers: {
           Authorization: API_KEY,
-          'Content-Type': 'application/octet-stream',
+          'Content-Type': 'multipart/form-data', // ✅ 변경됨
         },
         onUploadProgress: (progressEvent) => {
           if (progressEvent.total) {
-            const percentCompleted = Math.round((progressEvent.loaded * 20) / progressEvent.total); // 최대 30%
+            const percentCompleted = Math.round((progressEvent.loaded * 20) / progressEvent.total);
             setProgress(10 + percentCompleted);
           }
         },
       });
 
       const audioUrl = uploadResponse.data.upload_url;
-      setProgress(30); // 업로드 완료
+      setProgress(30);
 
-      // 2️⃣ 한국어로 설정 + 화자 분리 활성화 (최대 70%)
+      // 🔥 AssemblyAI에 변환 요청
       const response = await axios.post(
         'https://api.assemblyai.com/v2/transcript',
-        {
-          audio_url: audioUrl,
-          speaker_labels: true, // 화자 분리 활성화
-          language_code: 'ko', // 한국어 설정
-        },
-        {
-          headers: {
-            Authorization: API_KEY,
-            'Content-Type': 'application/json',
-          },
-        }
+        { audio_url: audioUrl, speaker_labels: true, language_code: 'ko' },
+        { headers: { Authorization: API_KEY, 'Content-Type': 'application/json' } }
       );
 
       const transcriptId = response.data.id;
       setProgress(35);
 
-      // 3️⃣ 변환 완료 여부 확인 (최대 100%)
+      // 🔥 변환 완료 여부 확인
       let transcript;
       while (true) {
         const transcriptResponse = await axios.get(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
@@ -76,45 +74,58 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
 
         if (transcriptResponse.data.status === 'completed') {
           transcript = transcriptResponse.data.utterances;
-          setProgress(100); // 완료 시 100%
+          setProgress(100);
           break;
         } else {
-          setProgress((prev) => Math.min(prev + 5, 95)); // 변환 진행 중 (최대 95%)
-          await new Promise((resolve) => setTimeout(resolve, 3000)); // 3초 간격으로 체크
+          setProgress((prev) => Math.min(prev + 5, 95));
+          await new Promise((resolve) => setTimeout(resolve, 3000));
         }
       }
 
       onTranscript(transcript);
     } catch (error) {
       console.error('오류 발생:', error);
-      setProgress(0); // 오류 발생 시 초기화
+      setProgress(0);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div>
-      <input type="file" accept="audio/*" onChange={handleFileChange} />
-      <button onClick={handleUpload} disabled={loading}>
-        {loading ? '처리 중...' : '업로드 및 변환'}
-      </button>
+    <>
+      <FileForm>
+        <div className="form-wrapper">
+          {/* 숨겨진 파일 입력 필드 */}
+          <input type="file" id="fileUpload" onChange={handleFileChange} />
+
+          {/* 선택된 파일 이름 표시 */}
+          <label className="fileUploadlabel" htmlFor="fileUpload">
+            {file ? file.name : '선택된 파일 없음'}
+          </label>
+        </div>
+
+        <Button onClick={handleUpload} disabled={loading}>
+          {loading ? '처리 중...' : '업로드 및 변환'}
+        </Button>
+      </FileForm>
       {loading && (
-        <div style={{ marginTop: '10px', width: '100%', backgroundColor: '#eee' }}>
+        <div style={{ marginTop: '10px', width: '100%', backgroundColor: '#eee', borderRadius: '10px' }}>
           <div
             style={{
               width: `${progress}%`,
-              backgroundColor: 'blue',
+              backgroundColor: '#7c3aed',
               color: 'white',
               textAlign: 'center',
-              padding: '5px 0',
+              fontSize: '14px',
+              borderRadius: '10px 0 0 10px',
+              transition: 'All .3s',
             }}
           >
             {progress}%
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
