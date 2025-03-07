@@ -12,6 +12,11 @@ export const ModalContainer = styled.div`
   box-shadow: rgba(99, 99, 99, 0.2) 0px 2px 8px 0px;
   color: #000;
   overflow: auto;
+
+  /* 중앙 정렬 */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   h3 {
     margin-bottom: 10px;
   }
@@ -21,7 +26,7 @@ export const ModalContainer = styled.div`
     flex-direction: column;
     gap: 20px;
     h4 {
-      font-size: 24px;
+      font-size: 16px;
     }
     ul {
       margin-top: 0px;

@@ -12,7 +12,7 @@ export const SPEAKER_COLORS: { [key: string]: string } = {
 
 // ✅ 스타일 컴포넌트 정의
 export const ChatContainer = styled.div`
-  padding: 20px;
+  padding: 20px 0;
   margin: 0 auto;
   width: auto;
 `;

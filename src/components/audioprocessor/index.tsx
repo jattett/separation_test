@@ -18,6 +18,19 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
   const [progress, setProgress] = useState<number>(0);
   const [file, setFile] = useState<File | null>(null); // 🔥 파일 객체 저장
 
+  const allowedTypes = [
+    'audio/mpeg', // mp3
+    'audio/wav',
+    'audio/ogg',
+    'audio/flac',
+    'audio/x-m4a', // 일부 환경에서 m4a
+    'audio/mp4', // 표준 m4a
+    'video/mp4', // m4a가 video/mp4로 인식될 수 있음
+    'audio/x-amr',
+    'audio/amr',
+    'audio/3gpp',
+  ];
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
@@ -26,7 +39,16 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
   };
 
   const handleUpload = async () => {
-    if (!file) return alert('파일을 선택하세요.');
+    if (!file) {
+      alert('파일을 선택하세요.');
+      return;
+    }
+
+    // 🔥 파일 타입 검사
+    if (!allowedTypes.includes(file.type)) {
+      alert('지원되지 않는 파일 형식입니다. 오디오 파일만 업로드해주세요.');
+      return;
+    }
 
     setLoading(true);
     setProgress(5);
@@ -82,6 +104,7 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
         }
       }
 
+      // 최종 결과 콜백으로 전달
       onTranscript(transcript);
     } catch (error) {
       console.error('오류 발생:', error);
@@ -95,10 +118,8 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
     <>
       <FileForm>
         <div className="form-wrapper">
-          {/* 숨겨진 파일 입력 필드 */}
           <input type="file" id="fileUpload" onChange={handleFileChange} />
 
-          {/* 선택된 파일 이름 표시 */}
           <label className="fileUploadlabel" htmlFor="fileUpload">
             {file ? file.name : '선택된 파일 없음'}
           </label>

@@ -27,7 +27,7 @@ const summarizeText = async (text: string) => {
     const prompt = `다음 대화를 화자별로 분석하세요.
     1. 각각의 화자가 자주 사용하는 단어와 말투를 분석하세요.
     2. HTML 형식(h4, ul, li)으로만 결과를 반환하세요.
-    3. 백틱, 코드 블록, 마크다운 형식은 절대 포함하지 마세요.
+    3. 무조건 백틱, 코드 블록, 마크다운 형식은 절대 포함하지 마세요.
     4. 오직 HTML 태그만 유지한 채, 순수한 HTML 코드로 결과를 반환하세요.
 
     대화 내용:
@@ -141,64 +141,69 @@ const Summary: React.FC<SummaryProps> = ({ messages, setOpenModal }) => {
   const COLORS = ['#00C49F', '#FF4444'];
 
   return (
-    <ModalContainer>
-      <CloseButton onClick={() => setOpenModal(false)}>
-        <AiOutlineClose />
-      </CloseButton>
+    <div
+      className="background"
+      style={{ position: 'absolute', width: '100%', height: '101%', background: 'rgb(0,0,0,0.5)', top: '0' }}
+    >
+      <ModalContainer>
+        <CloseButton onClick={() => setOpenModal(false)}>
+          <AiOutlineClose />
+        </CloseButton>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '20px' }}>
-          <ClipLoader size={50} color="#8884d8" /> {/* ✅ 로딩 써클 */}
-          <p>분석 중입니다...</p>
-        </div>
-      ) : (
-        <>
-          <h3>📊 감정 분석 그래프</h3>
-          {Object.entries(sentimentData).map(([speaker, data]) => (
-            <div key={speaker} style={{ marginBottom: '20px', textAlign: 'center' }}>
-              <PieChart width={250} height={250} style={{ margin: '0 auto' }}>
-                <Pie
-                  data={[
-                    { name: '긍정 단어', value: data.positive },
-                    { name: '부정 단어', value: data.negative },
-                  ]}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  <Cell key="positive" fill={COLORS[0]} />
-                  <Cell key="negative" fill={COLORS[1]} />
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-              {/* 🔥 긍정적 단어와 부정적 단어 목록 추가 */}
-              <div style={{ marginTop: '10px', textAlign: 'left', padding: '10px' }}>
-                <p>
-                  <strong>😊 긍정적인 단어:</strong>{' '}
-                  {data.positiveWords.length > 0 ? data.positiveWords.join(', ') : '없음'}
-                </p>
-                <p>
-                  <strong>😡 부정적인 단어:</strong>{' '}
-                  {data.negativeWords.length > 0 ? data.negativeWords.join(', ') : '없음'}
-                </p>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <ClipLoader size={50} color="#8884d8" /> {/* ✅ 로딩 써클 */}
+            <p>분석 중입니다...</p>
+          </div>
+        ) : (
+          <>
+            <h3>📊 감정 분석 그래프</h3>
+            {Object.entries(sentimentData).map(([speaker, data]) => (
+              <div key={speaker} style={{ marginBottom: '20px', textAlign: 'center' }}>
+                <PieChart width={250} height={250} style={{ margin: '0 auto' }}>
+                  <Pie
+                    data={[
+                      { name: '긍정 단어', value: data.positive },
+                      { name: '부정 단어', value: data.negative },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    <Cell key="positive" fill={COLORS[0]} />
+                    <Cell key="negative" fill={COLORS[1]} />
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+                {/* 🔥 긍정적 단어와 부정적 단어 목록 추가 */}
+                <div style={{ marginTop: '10px', textAlign: 'left', padding: '10px' }}>
+                  <p>
+                    <strong>😊 긍정적인 단어:</strong>{' '}
+                    {data.positiveWords.length > 0 ? data.positiveWords.join(', ') : '없음'}
+                  </p>
+                  <p>
+                    <strong>😡 부정적인 단어:</strong>{' '}
+                    {data.negativeWords.length > 0 ? data.negativeWords.join(', ') : '없음'}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          <h3>📝 대화 분석</h3>
-          {Object.entries(summarizedData).map(([speaker, summary]) => (
-            <div
-              className="result-area"
-              key={speaker}
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(summary) }}
-            />
-          ))}
-        </>
-      )}
-    </ModalContainer>
+            <h3>📝 대화 분석</h3>
+            {Object.entries(summarizedData).map(([speaker, summary]) => (
+              <div
+                className="result-area"
+                key={speaker}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(summary) }}
+              />
+            ))}
+          </>
+        )}
+      </ModalContainer>
+    </div>
   );
 };
 

@@ -11,7 +11,7 @@ const purpleGradientAnimation = keyframes`
 
 // ✅ 보라색 애니메이션이 적용된 제목 스타일
 export const TitleAnimation = styled.h1`
-  font-size: 2.5rem;
+  font-size: 1.5rem;
   font-weight: bold;
   animation: ${purpleGradientAnimation} 3s infinite alternate; // 3초 동안 애니메이션 반복
   transition: color 0.3s ease-in-out;
