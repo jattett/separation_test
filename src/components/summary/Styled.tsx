@@ -13,6 +13,7 @@ export const ModalContainer = styled.div`
   color: #000;
   overflow: auto;
   font-size: 14px;
+  background: rgb(138, 138, 236);
 
   /* 중앙 정렬 */
   top: 50%;
@@ -20,9 +21,19 @@ export const ModalContainer = styled.div`
   transform: translate(-50%, -50%);
   h3 {
     margin-bottom: 10px;
+    color: #fff;
+  }
+  .chart-wrapper {
+    background-color: #fff;
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
   }
 
   .result-area {
+    background-color: #fff;
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
     gap: 20px;

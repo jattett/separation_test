@@ -3,6 +3,7 @@ import axios from 'axios';
 import { FaMicrophone, FaStop } from 'react-icons/fa'; // 🔥 마이크 & 정지 아이콘 추가
 import styled, { keyframes, css } from 'styled-components';
 import { Button, FileForm } from './Styled';
+import * as lame from '@breezystack/lamejs';
 
 const API_KEY = '9908b0de5b704b80a20bb799d7803ad9';
 
@@ -68,8 +69,6 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
   const audioChunks = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
 
-  const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/flac', 'audio/mp4', 'audio/mp3'];
-
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
@@ -94,12 +93,12 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
   const handleStartRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+
+      // ✅ 지원되는 형식으로 변경: audio/wav ❌ → audio/webm ✅
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
       recorderRef.current = recorder;
       audioChunks.current = [];
-      setTime(0);
-
-      setFile(null);
 
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -107,17 +106,19 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
         }
       };
 
-      recorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks.current, { type: 'audio/mp3' });
-        console.log('🎤 생성된 오디오 Blob:', audioBlob);
-        console.log('🔊 Blob 크기 (bytes):', audioBlob.size);
-        setAudioBlob(audioBlob); // ✅ MP3 변환 전 저장
+      recorder.onstop = async () => {
+        const webmBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+
+        // ✅ 변환 시 파일 이름 추가
+        const mp3Blob = await convertToMp3(webmBlob, 'recording');
+
+        setAudioBlob(mp3Blob);
       };
 
       recorder.start();
       setIsRecording(true);
     } catch (error) {
-      console.error('마이크 접근 오류:', error);
+      console.error('🎤 마이크 접근 오류:', error);
     }
   };
 
@@ -128,17 +129,125 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
     }
   };
 
+  const convertToMp3 = (inputBlob: Blob, fileName: string): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      console.log('🎤 MP3 변환 시작 - 원본 파일 크기:', inputBlob.size, '타입:', inputBlob.type);
+
+      // ✅ MP3이면 변환하지 않고 바로 리턴
+      if (inputBlob.type.includes('mp3')) {
+        console.warn('⚠️ 이미 MP3 파일이므로 변환 없이 사용됩니다:', fileName);
+        resolve(new File([inputBlob], fileName, { type: 'audio/mp3', lastModified: Date.now() }));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.readAsArrayBuffer(inputBlob);
+
+      reader.onloadend = () => {
+        if (!reader.result) {
+          console.error('❌ FileReader가 데이터를 읽지 못했습니다!');
+          reject(new Error('FileReader failed to read data'));
+          return;
+        }
+
+        const audioContext = new AudioContext();
+        const arrayBuffer = reader.result as ArrayBuffer;
+
+        audioContext
+          .decodeAudioData(arrayBuffer)
+          .then((audioBuffer) => {
+            if (!audioBuffer) {
+              console.error('❌ PCM 변환 실패: `decodeAudioData()`가 데이터를 반환하지 못했습니다.');
+              reject(new Error('Failed to decode audio to PCM'));
+              return;
+            }
+
+            console.log(
+              `🔊 PCM 변환 완료: 샘플레이트 ${audioBuffer.sampleRate}Hz, 채널 ${audioBuffer.numberOfChannels}`
+            );
+
+            // 🔥 PCM 데이터를 Int16Array로 변환
+            const numChannels = audioBuffer.numberOfChannels;
+            const sampleRate = audioBuffer.sampleRate;
+            const bufferSize = 8192;
+
+            const mp3encoder = new lame.Mp3Encoder(numChannels, sampleRate, 128);
+            const mp3Data: Uint8Array[] = [];
+
+            for (let channel = 0; channel < numChannels; channel++) {
+              const channelData = audioBuffer.getChannelData(channel);
+              if (!channelData || channelData.length === 0) {
+                console.error(`❌ 채널 ${channel}에서 PCM 데이터를 가져오지 못했습니다.`);
+                reject(new Error(`Failed to retrieve PCM data for channel ${channel}`));
+                return;
+              }
+
+              console.log(`🎧 채널 ${channel} PCM 데이터 길이:`, channelData.length);
+
+              for (let i = 0; i < channelData.length; i += bufferSize) {
+                const chunk = channelData.slice(i, i + bufferSize);
+                const pcmChunk = new Int16Array(chunk.length);
+
+                for (let j = 0; j < chunk.length; j++) {
+                  pcmChunk[j] = Math.max(-32768, Math.min(32767, chunk[j] * 32768));
+                }
+
+                const mp3Buf = mp3encoder.encodeBuffer(pcmChunk);
+                if (!mp3Buf || mp3Buf.length === 0) {
+                  console.error('❌ MP3 변환 실패: encodeBuffer()가 데이터를 생성하지 못함');
+                  reject(new Error('MP3 encoding failed'));
+                  return;
+                }
+
+                mp3Data.push(mp3Buf);
+              }
+            }
+
+            const finalMp3Buffer = mp3encoder.flush();
+            if (finalMp3Buffer.length > 0) {
+              mp3Data.push(finalMp3Buffer);
+            }
+
+            const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' });
+
+            console.log('✅ MP3 변환 완료 - 변환된 파일 크기:', mp3Blob.size);
+
+            const mp3File = new File([mp3Blob], fileName.replace(/\.[^/.]+$/, '') + '.mp3', {
+              type: 'audio/mp3',
+              lastModified: Date.now(),
+            });
+
+            console.log('✅ 최종 MP3 파일:', mp3File.name, '- 크기:', mp3File.size);
+            resolve(mp3File);
+          })
+          .catch((error) => {
+            console.error('❌ PCM 변환 중 오류 발생:', error);
+            reject(new Error('PCM conversion failed'));
+          });
+      };
+
+      reader.onerror = () => {
+        console.error('❌ FileReader에서 오류 발생!');
+        reject(new Error('Error reading file'));
+      };
+    });
+  };
+
   const handleUpload = async () => {
     if (!file && !audioBlob) {
       alert('파일을 선택하거나 녹음을 해주세요.');
       return;
     }
 
-    const uploadFile = file || new File([audioBlob!], 'recording.mp3', { type: 'audio/mp3' });
+    let uploadFile = file || new File([audioBlob!], 'recording.mp3', { type: 'audio/mp3' });
 
-    if (!allowedTypes.includes(uploadFile.type)) {
-      alert('지원되지 않는 파일 형식입니다. 오디오 파일만 업로드해주세요.');
-      return;
+    console.log('🚀 원본 파일 타입:', uploadFile.type, '크기:', uploadFile.size);
+
+    // ✅ MP3가 아니면 변환 실행
+    if (!uploadFile.type.includes('mp3')) {
+      console.warn('⚠️ MP3로 변환 중...');
+      uploadFile = await convertToMp3(uploadFile, uploadFile.name);
+      console.log('🎧 변환된 MP3 파일 타입:', uploadFile.type, '크기:', uploadFile.size);
     }
 
     setLoading(true);
@@ -148,12 +257,15 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
       const formData = new FormData();
       formData.append('file', uploadFile);
 
+      console.log('🚀 파일 업로드 중...', uploadFile.name, '크기:', uploadFile.size);
+
       const uploadResponse = await axios.post('https://api.assemblyai.com/v2/upload', formData, {
         headers: { Authorization: API_KEY },
       });
 
       const audioUrl = uploadResponse.data.upload_url;
       setProgress(30);
+      console.log('✅ 업로드 성공:', audioUrl);
 
       const response = await axios.post(
         'https://api.assemblyai.com/v2/transcript',
@@ -163,6 +275,7 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
 
       const transcriptId = response.data.id;
       setProgress(35);
+      console.log('🔍 화자 분석 시작:', transcriptId);
 
       let transcript;
       while (true) {
@@ -173,6 +286,7 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
         if (transcriptResponse.data.status === 'completed') {
           transcript = transcriptResponse.data.utterances;
           setProgress(100);
+          console.log('✅ 화자 분석 완료!');
           break;
         } else {
           setProgress((prev) => Math.min(prev + 5, 95));
@@ -182,7 +296,7 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
 
       onTranscript(transcript);
     } catch (error) {
-      console.error('오류 발생:', error);
+      console.error('❌ 오류 발생:', error);
       setProgress(0);
     } finally {
       setLoading(false);
@@ -205,7 +319,7 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
         </label>
 
         <Button onClick={handleUpload} disabled={loading}>
-          {loading ? '처리 중...' : '업로드 및 변환'}
+          {loading ? '처리 중...' : '음성 분석 시작'}
         </Button>
       </FileForm>
 

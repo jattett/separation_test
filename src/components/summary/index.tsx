@@ -147,11 +147,11 @@ const Summary: React.FC<SummaryProps> = ({ messages, setOpenModal }) => {
     <div className="background">
       <ModalContainer>
         <CloseButton onClick={() => setOpenModal(false)}>
-          <AiOutlineClose />
+          <AiOutlineClose color="#fff" />
         </CloseButton>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '20px' }}>
+          <div className="chart-wrapper" style={{ textAlign: 'center', padding: '20px' }}>
             <ClipLoader size={50} color="#8884d8" /> {/* ✅ 로딩 써클 */}
             <p>분석 중입니다...</p>
           </div>
@@ -159,7 +159,7 @@ const Summary: React.FC<SummaryProps> = ({ messages, setOpenModal }) => {
           <>
             <h3>📊 감정 분석 그래프</h3>
             {Object.entries(sentimentData).map(([speaker, data]) => (
-              <div key={speaker} style={{ marginBottom: '20px', textAlign: 'center' }}>
+              <div className="chart-wrapper" key={speaker} style={{ marginBottom: '20px', textAlign: 'center' }}>
                 <PieChart width={250} height={250} style={{ margin: '0 auto' }}>
                   <Pie
                     data={[
