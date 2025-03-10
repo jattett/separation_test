@@ -110,7 +110,7 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
         const webmBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
 
         // ✅ 변환 시 파일 이름 추가
-        const mp3Blob = await convertToMp3(webmBlob, 'recording');
+        const mp3Blob = await convertToMpeg(webmBlob, 'recording');
 
         setAudioBlob(mp3Blob);
       };
@@ -129,14 +129,14 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
     }
   };
 
-  const convertToMp3 = (inputBlob: Blob, fileName: string): Promise<File> => {
+  const convertToMpeg = (inputBlob: Blob, fileName: string): Promise<File> => {
     return new Promise((resolve, reject) => {
-      console.log('🎤 MP3 변환 시작 - 원본 파일 크기:', inputBlob.size, '타입:', inputBlob.type);
+      console.log('🎤 MPEG 변환 시작 - 원본 파일 크기:', inputBlob.size, '타입:', inputBlob.type);
 
-      // ✅ MP3이면 변환하지 않고 바로 리턴
-      if (inputBlob.type.includes('mp3')) {
-        console.warn('⚠️ 이미 MP3 파일이므로 변환 없이 사용됩니다:', fileName);
-        resolve(new File([inputBlob], fileName, { type: 'audio/mp3', lastModified: Date.now() }));
+      // ✅ 이미 MPEG 또는 MP3이면 변환 없이 사용
+      if (inputBlob.type.includes('mp3') || inputBlob.type.includes('mpeg')) {
+        console.warn('⚠️ 이미 MPEG 또는 MP3 파일이므로 변환 없이 사용됩니다:', fileName);
+        resolve(new File([inputBlob], fileName, { type: 'audio/mpeg', lastModified: Date.now() }));
         return;
       }
 
@@ -172,7 +172,7 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
             const bufferSize = 8192;
 
             const mp3encoder = new lame.Mp3Encoder(numChannels, sampleRate, 128);
-            const mp3Data: Uint8Array[] = [];
+            const mpegData: Uint8Array[] = [];
 
             for (let channel = 0; channel < numChannels; channel++) {
               const channelData = audioBuffer.getChannelData(channel);
@@ -194,31 +194,31 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
 
                 const mp3Buf = mp3encoder.encodeBuffer(pcmChunk);
                 if (!mp3Buf || mp3Buf.length === 0) {
-                  console.error('❌ MP3 변환 실패: encodeBuffer()가 데이터를 생성하지 못함');
-                  reject(new Error('MP3 encoding failed'));
+                  console.error('❌ MPEG 변환 실패: encodeBuffer()가 데이터를 생성하지 못함');
+                  reject(new Error('MPEG encoding failed'));
                   return;
                 }
 
-                mp3Data.push(mp3Buf);
+                mpegData.push(mp3Buf);
               }
             }
 
-            const finalMp3Buffer = mp3encoder.flush();
-            if (finalMp3Buffer.length > 0) {
-              mp3Data.push(finalMp3Buffer);
+            const finalMpegBuffer = mp3encoder.flush();
+            if (finalMpegBuffer.length > 0) {
+              mpegData.push(finalMpegBuffer);
             }
 
-            const mp3Blob = new Blob(mp3Data, { type: 'audio/mp3' });
+            const mpegBlob = new Blob(mpegData, { type: 'audio/mpeg' });
 
-            console.log('✅ MP3 변환 완료 - 변환된 파일 크기:', mp3Blob.size);
+            console.log('✅ MPEG 변환 완료 - 변환된 파일 크기:', mpegBlob.size);
 
-            const mp3File = new File([mp3Blob], fileName.replace(/\.[^/.]+$/, '') + '.mp3', {
-              type: 'audio/mp3',
+            const mpegFile = new File([mpegBlob], fileName.replace(/\.[^/.]+$/, '') + '.mpeg', {
+              type: 'audio/mpeg',
               lastModified: Date.now(),
             });
 
-            console.log('✅ 최종 MP3 파일:', mp3File.name, '- 크기:', mp3File.size);
-            resolve(mp3File);
+            console.log('✅ 최종 MPEG 파일:', mpegFile.name, '- 크기:', mpegFile.size);
+            resolve(mpegFile);
           })
           .catch((error) => {
             console.error('❌ PCM 변환 중 오류 발생:', error);
@@ -245,9 +245,9 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
 
     // ✅ MP3가 아니면 변환 실행
     if (!uploadFile.type.includes('mp3')) {
-      console.warn('⚠️ MP3로 변환 중...');
-      uploadFile = await convertToMp3(uploadFile, uploadFile.name);
-      console.log('🎧 변환된 MP3 파일 타입:', uploadFile.type, '크기:', uploadFile.size);
+      console.warn('⚠️ MPEG로 변환 중...');
+      uploadFile = await convertToMpeg(uploadFile, uploadFile.name);
+      console.log('🎧 변환된 MPEG 파일 타입:', uploadFile.type, '크기:', uploadFile.size);
     }
 
     setLoading(true);
@@ -277,14 +277,14 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
       setProgress(35);
       console.log('🔍 화자 분석 시작:', transcriptId);
 
-      let transcript;
+      let transcript = null;
       while (true) {
         const transcriptResponse = await axios.get(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
           headers: { Authorization: API_KEY },
         });
 
         if (transcriptResponse.data.status === 'completed') {
-          transcript = transcriptResponse.data.utterances;
+          transcript = transcriptResponse.data.utterances || [];
           setProgress(100);
           console.log('✅ 화자 분석 완료!');
           break;
@@ -294,7 +294,8 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
         }
       }
 
-      onTranscript(transcript);
+      // ✅ transcript가 null이면 빈 배열 전달
+      onTranscript(transcript || []);
     } catch (error) {
       console.error('❌ 오류 발생:', error);
       setProgress(0);
