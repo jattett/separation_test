@@ -1,4 +1,4 @@
-import { createGlobalStyle } from 'styled-components';
+import { createGlobalStyle } from "styled-components";
 
 // ✅ 글로벌 스타일 정의
 export const GlobalStyle = createGlobalStyle`
@@ -19,7 +19,7 @@ export const GlobalStyle = createGlobalStyle`
 
   /* 스크롤바 스타일 */
   ::-webkit-scrollbar {
-    width: 8px;
+    display: none;
   }
 
   ::-webkit-scrollbar-thumb {
@@ -52,9 +52,5 @@ export const GlobalStyle = createGlobalStyle`
     cursor: pointer;
     font-size: 16px;
     transition: background 0.3s ease-in-out;
-  }
-
-  button:hover {
-    background-color: #9333EA; /* 밝은 보라색 */
   }
 `;

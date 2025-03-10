@@ -1,4 +1,4 @@
-import styled from 'styled-components';
+import styled from "styled-components";
 
 export const ModalContainer = styled.div`
   padding: 20px;
@@ -14,14 +14,19 @@ export const ModalContainer = styled.div`
   overflow: auto;
   font-size: 14px;
   background: rgb(138, 138, 236);
+  display: flex;
+  flex-direction: column;
 
   /* 중앙 정렬 */
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  border-radius: 15px;
   h3 {
     margin-bottom: 10px;
     color: #fff;
+    font-weight: 700;
+    font-size: 24px;
   }
   .chart-wrapper {
     background-color: #fff;
@@ -29,6 +34,14 @@ export const ModalContainer = styled.div`
     padding: 10px;
     display: flex;
     flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    &.v2 {
+      margin-top: 30px;
+      min-height: 50vh;
+      justify-content: center;
+      align-items: center;
+    }
   }
 
   .result-area {
@@ -47,6 +60,15 @@ export const ModalContainer = styled.div`
       flex-direction: column;
       gap: 10px;
       font-size: 14px;
+      h4 {
+        font-weight: 700;
+      }
+      li {
+        margin-left: 10px;
+        &:first-child {
+          margin-top: 10px;
+        }
+      }
     }
   }
 `;
@@ -59,8 +81,9 @@ export const CloseButton = styled.button`
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 20px;
-  color: #333;
+  font-size: 24px;
+  color: #fff;
+  transition: all 0.3s;
 
   &:hover {
     color: red;
