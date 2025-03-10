@@ -3,7 +3,6 @@ import axios from 'axios';
 import { FaMicrophone, FaStop } from 'react-icons/fa'; // 🔥 마이크 & 정지 아이콘 추가
 import styled, { keyframes, css } from 'styled-components';
 import { Button, FileForm } from './Styled';
-import lamejs from 'lamejs';
 
 const API_KEY = '9908b0de5b704b80a20bb799d7803ad9';
 
