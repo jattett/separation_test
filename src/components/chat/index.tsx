@@ -42,12 +42,14 @@ const Chat: React.FC<ChatProps> = ({ messages, setOpenModal }) => {
   });
 
   return (
-    <ChatContainer>
-      {messages.map((msg, index) => (
-        <ChatBubble key={index} speaker={speakerMapping[msg.speaker] || 'E'} text={msg.text} />
-      ))}
+    <>
+      <ChatContainer>
+        {messages.map((msg, index) => (
+          <ChatBubble key={index} speaker={speakerMapping[msg.speaker] || 'E'} text={msg.text} />
+        ))}
+      </ChatContainer>
       <button onClick={() => setOpenModal(true)}>나의 대화 분석 & 피드백 받기</button>
-    </ChatContainer>
+    </>
   );
 };
 

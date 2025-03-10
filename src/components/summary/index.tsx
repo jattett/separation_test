@@ -25,10 +25,13 @@ const summarizeText = async (text: string) => {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
     const prompt = `다음 대화를 화자별로 분석하세요.
-    1. 각각의 화자가 자주 사용하는 단어와 말투를 분석하세요.
-    2. HTML 형식(h4, ul, li)으로만 결과를 반환하세요.
-    3. 무조건 백틱, 코드 블록, 마크다운 형식은 절대 포함하지 마세요.
-    4. 오직 HTML 태그만 유지한 채, 순수한 HTML 코드로 결과를 반환하세요.
+    1. 해당 마크다운을 분석하여 화자 분류를 정확히 해주세요.
+    2. 해당 텍스트에서 화자가 A~E 까지 나뉘어져있습니다. 알파뱃 분류를 꼭해주세요 만약 대화 내용에 해당 화자가 없다면 안 나타내도 됩니다.
+    3.각각의 화자가 자주 사용하는 단어와 말투를 분석하세요.
+    4. HTML 형식(h4, ul, li)으로만 결과를 반환하세요.
+    5. 무조건 백틱, 코드 블록, 마크다운 형식은 절대 포함하지 마세요.
+    6. 오직 HTML 태그만 유지한 채, 순수한 HTML 코드로 결과를 반환하세요.
+    7. 코드표시를 백틱(중요) 위한 주석 마크다운은 나타내지마세요
 
     대화 내용:
     ${text}`;
@@ -141,10 +144,7 @@ const Summary: React.FC<SummaryProps> = ({ messages, setOpenModal }) => {
   const COLORS = ['#00C49F', '#FF4444'];
 
   return (
-    <div
-      className="background"
-      style={{ position: 'absolute', width: '100%', height: '101%', background: 'rgb(0,0,0,0.5)', top: '0' }}
-    >
+    <div className="background">
       <ModalContainer>
         <CloseButton onClick={() => setOpenModal(false)}>
           <AiOutlineClose />

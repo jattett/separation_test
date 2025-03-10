@@ -2,14 +2,20 @@ import styled from 'styled-components';
 
 export const Button = styled.button`
   border: none;
-  padding: 20px 10px;
+  padding: 10px;
   color: #fff;
-  border-radius: 15px;
+  border-radius: 10px;
   background-color: #7c3aed;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 500;
   transition: all 0.3s;
   cursor: pointer;
+  box-sizing: border-box;
+  height: 40px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
   &:hover {
     background-color: #573396;
   }
@@ -23,22 +29,22 @@ export const FileForm = styled.div`
   gap: 20px;
   width: 100%;
   max-width: 400px;
-  .form-wrapper {
-    display: flex;
-    flex-direction: row;
-    gap: 10px;
-    /* 선택한 파일 이름 표시 */
-    .fileUploadlabel {
-      font-size: 14px;
-      color: #fff;
-      background: #2e2e3e;
-      padding: 5px 10px;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: all 0.3s;
-      &:hover {
-        background: #7f7f7f;
-      }
+  .fileUploadlabel {
+    font-size: 14px;
+    color: #fff;
+    background: #2e2e3e;
+    box-sizing: border-box;
+    height: 40px;
+    padding: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 120px;
+    &:hover {
+      background: #7f7f7f;
     }
   }
 
