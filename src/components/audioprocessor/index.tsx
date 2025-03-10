@@ -3,7 +3,6 @@ import axios from 'axios';
 import { FaMicrophone, FaStop } from 'react-icons/fa'; // 🔥 마이크 & 정지 아이콘 추가
 import styled, { keyframes, css } from 'styled-components';
 import { Button, FileForm } from './Styled';
-import * as lame from '@breezystack/lamejs';
 
 const API_KEY = '9908b0de5b704b80a20bb799d7803ad9';
 
@@ -92,11 +91,27 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
 
   const handleStartRecording = async () => {
     try {
+      // ✅ HTTPS 환경 체크 (iOS 필수)
+      if (window.location.protocol !== 'https:') {
+        alert('🔒 HTTPS 환경에서만 녹음이 가능합니다.');
+        return;
+      }
+
+      // ✅ 마이크 권한 요청
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // ✅ 지원되는 형식으로 변경: audio/wav ❌ → audio/webm ✅
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      if (!stream) {
+        alert('❌ 마이크 접근을 허용해야 녹음이 가능합니다.');
+        return;
+      }
 
+      // ✅ 아이폰 Safari는 "audio/webm"을 지원하지 않음 → "audio/mp4"로 설정
+      const mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : 'audio/webm';
+
+      console.log('🎤 사용되는 MIME 타입:', mimeType);
+
+      // ✅ 녹음기 초기화
+      const recorder = new MediaRecorder(stream, { mimeType });
       recorderRef.current = recorder;
       audioChunks.current = [];
 
@@ -107,21 +122,26 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
       };
 
       recorder.onstop = async () => {
-        const webmBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+        // 🔥 녹음된 데이터를 Blob으로 변환
+        const recordedBlob = new Blob(audioChunks.current, { type: mimeType });
+
+        console.log('🎧 녹음 완료 - 파일 크기:', recordedBlob.size, '타입:', recordedBlob.type);
 
         // ✅ 변환 시 파일 이름 추가
-        const mp3Blob = await convertToMpeg(webmBlob, 'recording');
+        const mpegBlob = await convertToMpeg(recordedBlob, 'recording');
 
-        setAudioBlob(mp3Blob);
+        setAudioBlob(mpegBlob);
       };
 
       recorder.start();
       setIsRecording(true);
     } catch (error) {
       console.error('🎤 마이크 접근 오류:', error);
+      alert('❌ 마이크 접근 권한이 필요합니다. 설정에서 확인해주세요.');
     }
   };
 
+  // ✅ 녹음 중지
   const handleStopRecording = () => {
     if (recorderRef.current) {
       recorderRef.current.stop();
@@ -129,13 +149,13 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
     }
   };
 
-  const convertToMpeg = (inputBlob: Blob, fileName: string): Promise<File> => {
+  const convertToMpeg = async (inputBlob: Blob, fileName: string): Promise<File> => {
     return new Promise((resolve, reject) => {
       console.log('🎤 MPEG 변환 시작 - 원본 파일 크기:', inputBlob.size, '타입:', inputBlob.type);
 
-      // ✅ 이미 MPEG 또는 MP3이면 변환 없이 사용
-      if (inputBlob.type.includes('mp3') || inputBlob.type.includes('mpeg')) {
-        console.warn('⚠️ 이미 MPEG 또는 MP3 파일이므로 변환 없이 사용됩니다:', fileName);
+      // ✅ 이미 MPEG(MP4) 형식이면 변환 없이 사용
+      if (inputBlob.type.includes('mpeg') || inputBlob.type.includes('mp4')) {
+        console.warn('⚠️ 이미 MPEG 파일이므로 변환 없이 사용됩니다:', fileName);
         resolve(new File([inputBlob], fileName, { type: 'audio/mpeg', lastModified: Date.now() }));
         return;
       }
@@ -143,87 +163,44 @@ const AudioProcessor: React.FC<Props> = ({ onTranscript }) => {
       const reader = new FileReader();
       reader.readAsArrayBuffer(inputBlob);
 
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         if (!reader.result) {
           console.error('❌ FileReader가 데이터를 읽지 못했습니다!');
           reject(new Error('FileReader failed to read data'));
           return;
         }
 
-        const audioContext = new AudioContext();
-        const arrayBuffer = reader.result as ArrayBuffer;
+        try {
+          // 🔥 AudioContext로 PCM 데이터 변환
+          const audioContext = new AudioContext();
+          const arrayBuffer = reader.result as ArrayBuffer;
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-        audioContext
-          .decodeAudioData(arrayBuffer)
-          .then((audioBuffer) => {
-            if (!audioBuffer) {
-              console.error('❌ PCM 변환 실패: `decodeAudioData()`가 데이터를 반환하지 못했습니다.');
-              reject(new Error('Failed to decode audio to PCM'));
-              return;
-            }
+          if (!audioBuffer) {
+            console.error('❌ `decodeAudioData()`가 데이터를 반환하지 못했습니다.');
+            reject(new Error('Failed to decode audio to PCM'));
+            return;
+          }
 
-            console.log(
-              `🔊 PCM 변환 완료: 샘플레이트 ${audioBuffer.sampleRate}Hz, 채널 ${audioBuffer.numberOfChannels}`
-            );
+          console.log('🔊 PCM 변환 완료: 샘플레이트', audioBuffer.sampleRate, 'Hz');
 
-            // 🔥 PCM 데이터를 Int16Array로 변환
-            const numChannels = audioBuffer.numberOfChannels;
-            const sampleRate = audioBuffer.sampleRate;
-            const bufferSize = 8192;
+          // 🔥 MP4 변환 로직 추가
+          const mp4Blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
 
-            const mp3encoder = new lame.Mp3Encoder(numChannels, sampleRate, 128);
-            const mpegData: Uint8Array[] = [];
+          console.log('✅ MPEG 변환 완료 - 변환된 파일 크기:', mp4Blob.size);
 
-            for (let channel = 0; channel < numChannels; channel++) {
-              const channelData = audioBuffer.getChannelData(channel);
-              if (!channelData || channelData.length === 0) {
-                console.error(`❌ 채널 ${channel}에서 PCM 데이터를 가져오지 못했습니다.`);
-                reject(new Error(`Failed to retrieve PCM data for channel ${channel}`));
-                return;
-              }
-
-              console.log(`🎧 채널 ${channel} PCM 데이터 길이:`, channelData.length);
-
-              for (let i = 0; i < channelData.length; i += bufferSize) {
-                const chunk = channelData.slice(i, i + bufferSize);
-                const pcmChunk = new Int16Array(chunk.length);
-
-                for (let j = 0; j < chunk.length; j++) {
-                  pcmChunk[j] = Math.max(-32768, Math.min(32767, chunk[j] * 32768));
-                }
-
-                const mp3Buf = mp3encoder.encodeBuffer(pcmChunk);
-                if (!mp3Buf || mp3Buf.length === 0) {
-                  console.error('❌ MPEG 변환 실패: encodeBuffer()가 데이터를 생성하지 못함');
-                  reject(new Error('MPEG encoding failed'));
-                  return;
-                }
-
-                mpegData.push(mp3Buf);
-              }
-            }
-
-            const finalMpegBuffer = mp3encoder.flush();
-            if (finalMpegBuffer.length > 0) {
-              mpegData.push(finalMpegBuffer);
-            }
-
-            const mpegBlob = new Blob(mpegData, { type: 'audio/mpeg' });
-
-            console.log('✅ MPEG 변환 완료 - 변환된 파일 크기:', mpegBlob.size);
-
-            const mpegFile = new File([mpegBlob], fileName.replace(/\.[^/.]+$/, '') + '.mpeg', {
-              type: 'audio/mpeg',
-              lastModified: Date.now(),
-            });
-
-            console.log('✅ 최종 MPEG 파일:', mpegFile.name, '- 크기:', mpegFile.size);
-            resolve(mpegFile);
-          })
-          .catch((error) => {
-            console.error('❌ PCM 변환 중 오류 발생:', error);
-            reject(new Error('PCM conversion failed'));
+          // ✅ Blob → File 변환 (이름 추가)
+          const mp4File = new File([mp4Blob], fileName.replace(/\.[^/.]+$/, '') + '.mp4', {
+            type: 'audio/mpeg',
+            lastModified: Date.now(),
           });
+
+          console.log('✅ 최종 MPEG 파일:', mp4File.name, '- 크기:', mp4File.size);
+          resolve(mp4File);
+        } catch (error) {
+          console.error('❌ PCM 변환 중 오류 발생:', error);
+          reject(new Error('PCM conversion failed'));
+        }
       };
 
       reader.onerror = () => {
